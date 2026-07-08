@@ -1749,10 +1749,99 @@
             }
         });
         
+        // 自动同步
+        function autoSave() {
+            const config = getSyncConfig();
+            if (config.token && config.gistId) {
+                // 静默上传，不显示状态
+                const data = {
+                    wrongQuestions: JSON.parse(localStorage.getItem('wrongQuestions') || '[]'),
+                    examHistory: JSON.parse(localStorage.getItem('examHistory') || '[]'),
+                    progress: JSON.parse(localStorage.getItem('quizProgress') || 'null'),
+                    lastSync: new Date().toISOString()
+                };
+                
+                fetch('https://api.github.com/gists/' + config.gistId, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': 'token ' + config.token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        files: {
+                            'quiz-data.json': {
+                                content: JSON.stringify(data)
+                            }
+                        }
+                    })
+                }).catch(() => {}); // 静默失败
+            }
+        }
+        
+        // 监听数据变化，自动保存
+        function watchChanges() {
+            // 每30秒自动保存一次
+            setInterval(autoSave, 30000);
+            
+            // 监听 localStorage 变化
+            const originalSetItem = localStorage.setItem;
+            localStorage.setItem = function(key, value) {
+                originalSetItem.call(this, key, value);
+                if (key === 'wrongQuestions' || key === 'examHistory' || key === 'quizProgress') {
+                    // 数据变化后延迟2秒保存（避免频繁保存）
+                    clearTimeout(window._autoSaveTimer);
+                    window._autoSaveTimer = setTimeout(autoSave, 2000);
+                }
+            };
+        }
+        
         // 启动
         async function init() {
             await loadQuestions();
             updateSyncStatus();
+            
+            // 页面加载时自动下载最新数据
+            const config = getSyncConfig();
+            if (config.token && config.gistId) {
+                try {
+                    const response = await fetch('https://api.github.com/gists/' + config.gistId, {
+                        headers: {
+                            'Authorization': 'token ' + config.token,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const gist = await response.json();
+                        if (gist.files && gist.files['quiz-data.json']) {
+                            const data = JSON.parse(gist.files['quiz-data.json'].content);
+                            
+                            // 检查云端数据是否更新
+                            const localSync = localStorage.getItem('last_sync');
+                            const cloudSync = data.lastSync;
+                            
+                            if (!localSync || !cloudSync || new Date(cloudSync) > new Date(localSync)) {
+                                localStorage.setItem('wrongQuestions', JSON.stringify(data.wrongQuestions || []));
+                                localStorage.setItem('examHistory', JSON.stringify(data.examHistory || []));
+                                if (data.progress) {
+                                    localStorage.setItem('quizProgress', JSON.stringify(data.progress));
+                                }
+                                localStorage.setItem('last_sync', cloudSync);
+                                
+                                // 刷新显示
+                                wrongQuestions = data.wrongQuestions || [];
+                                examHistory = data.examHistory || [];
+                                initApp();
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // 静默失败
+                }
+            }
+            
+            // 启动自动保存
+            watchChanges();
         }
         init();
     </script>
