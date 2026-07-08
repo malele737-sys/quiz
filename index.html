@@ -1839,8 +1839,8 @@
         
         // 监听数据变化，自动保存
         function watchChanges() {
-            // 每5分钟自动保存一次（避免API限制）
-            setInterval(autoSave, 300000);
+            // 每10分钟自动保存一次（避免API限制）
+            setInterval(autoSave, 600000);
             
             // 监听 localStorage 变化
             const originalSetItem = localStorage.setItem;
