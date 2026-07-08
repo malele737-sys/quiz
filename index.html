@@ -583,10 +583,11 @@
                 <button class="btn" onclick="exportData()" style="flex:1; background:#607d8b; color:#fff">导出数据</button>
                 <button class="btn" onclick="importData()" style="flex:1; background:#795548; color:#fff">导入数据</button>
             </div>
-            <div style="display: flex; gap: 12px;">
+            <div style="display: flex; gap: 12px; margin-bottom: 8px;">
                 <button class="btn" onclick="showSyncSettings()" style="flex:1; background:#0078d4; color:#fff">云同步设置</button>
                 <button class="btn" onclick="manualSync()" style="flex:1; background:#50c878; color:#fff" id="btn-sync">手动同步</button>
             </div>
+            <button class="btn" onclick="forceSyncFromCloud()" style="width:100%; background:#ff6b6b; color:#fff; margin-bottom: 8px;">强制从云端同步</button>
             <div id="sync-status" style="margin-top: 8px; text-align: center; font-size: 12px; color: #666;"></div>
             <details style="margin-top: 8px; font-size: 12px; color: #999;">
                 <summary style="cursor: pointer;">同步日志</summary>
@@ -1892,6 +1893,67 @@
             
             syncBtn.textContent = '手动同步';
             syncBtn.disabled = false;
+        }
+        
+        // 强制从云端同步（忽略时间比较）
+        async function forceSyncFromCloud() {
+            const config = getSyncConfig();
+            if (!config.token || !config.gistId) {
+                alert('请先配置云同步！');
+                showSyncSettings();
+                return;
+            }
+            
+            if (!confirm('确定要强制从云端同步吗？\n这会覆盖本地数据！')) {
+                return;
+            }
+            
+            try {
+                syncLog('强制同步开始');
+                
+                const url = 'https://api.github.com/gists/' + config.gistId;
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': 'token ' + config.token,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('获取失败 (' + response.status + ')');
+                }
+                
+                const gist = await response.json();
+                
+                if (!gist.files || !gist.files['quiz-data.json']) {
+                    throw new Error('云端没有数据');
+                }
+                
+                const content = gist.files['quiz-data.json'].content;
+                const data = JSON.parse(content);
+                
+                // 强制使用云端数据
+                wrongQuestions = data.wrongQuestions || [];
+                examHistory = data.examHistory || [];
+                
+                localStorage.setItem('wrongQuestions', JSON.stringify(wrongQuestions));
+                localStorage.setItem('examHistory', JSON.stringify(examHistory));
+                localStorage.setItem('last_sync', data.lastSync || new Date().toISOString());
+                
+                if (data.progress) {
+                    localStorage.setItem('quizProgress', JSON.stringify(data.progress));
+                }
+                
+                // 刷新显示
+                initApp();
+                
+                syncLog('强制同步完成，错题: ' + wrongQuestions.length + ', 历史: ' + examHistory.length);
+                alert('强制同步完成！\n错题: ' + wrongQuestions.length + ' 道\n历史记录: ' + examHistory.length + ' 条');
+                
+            } catch (error) {
+                syncLog('强制同步失败: ' + error.message);
+                alert('同步失败: ' + error.message);
+            }
         }
         
         // 自动同步（页面加载时）
