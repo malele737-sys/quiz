@@ -1799,13 +1799,18 @@
         function autoSave() {
             const config = getSyncConfig();
             if (config.token && config.gistId) {
+                const now = new Date().toISOString();
+                
                 // 静默上传，不显示状态
                 const data = {
                     wrongQuestions: JSON.parse(localStorage.getItem('wrongQuestions') || '[]'),
                     examHistory: JSON.parse(localStorage.getItem('examHistory') || '[]'),
                     progress: JSON.parse(localStorage.getItem('quizProgress') || 'null'),
-                    lastSync: new Date().toISOString()
+                    lastSync: now
                 };
+                
+                // 更新本地时间戳
+                localStorage.setItem('last_sync', now);
                 
                 fetch('https://api.github.com/gists/' + config.gistId, {
                     method: 'PATCH',
@@ -1872,16 +1877,12 @@
                     lastSync: localSync
                 };
                 
-                // 比较数据量：错题数量 + 历史记录数量 + 做题进度
-                const cloudScore = (cloudData.wrongQuestions || []).length + 
-                                   (cloudData.examHistory || []).length +
-                                   (cloudData.progress ? cloudData.progress.index : 0);
-                const localScore = localData.wrongQuestions.length + 
-                                   localData.examHistory.length +
-                                   (localData.progress ? localData.progress.index : 0);
+                // 使用时间戳判断哪个数据更新
+                const cloudTime = cloudSync ? new Date(cloudSync).getTime() : 0;
+                const localTime = localSync ? new Date(localSync).getTime() : 0;
                 
-                if (cloudScore > localScore) {
-                    // 云端数据更多，使用云端数据
+                if (cloudTime > localTime) {
+                    // 云端数据更新，使用云端数据
                     localStorage.setItem('wrongQuestions', JSON.stringify(cloudData.wrongQuestions || []));
                     localStorage.setItem('examHistory', JSON.stringify(cloudData.examHistory || []));
                     if (cloudData.progress) {
@@ -1893,8 +1894,8 @@
                     wrongQuestions = cloudData.wrongQuestions || [];
                     examHistory = cloudData.examHistory || [];
                     initApp();
-                } else if (localScore > cloudScore) {
-                    // 本地数据更多，上传到云端
+                } else if (localTime > cloudTime) {
+                    // 本地数据更新，上传到云端
                     const uploadData = {
                         ...localData,
                         lastSync: new Date().toISOString()
