@@ -1863,10 +1863,12 @@
                     lastSync: localSync
                 };
                 
-                // 比较数据量：错题数量 + 做题进度
+                // 比较数据量：错题数量 + 历史记录数量 + 做题进度
                 const cloudScore = (cloudData.wrongQuestions || []).length + 
+                                   (cloudData.examHistory || []).length +
                                    (cloudData.progress ? cloudData.progress.index : 0);
                 const localScore = localData.wrongQuestions.length + 
+                                   localData.examHistory.length +
                                    (localData.progress ? localData.progress.index : 0);
                 
                 if (cloudScore > localScore) {
