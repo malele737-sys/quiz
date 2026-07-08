@@ -1553,7 +1553,7 @@
             }
         }
         
-        // 上传到云端（简单版本）
+        // 上传到云端
         async function uploadToCloud() {
             const config = getSyncConfig();
             if (!config.token || !config.gistId) {
@@ -1570,6 +1570,7 @@
                 const data = {
                     wrongQuestions: JSON.parse(localStorage.getItem('wrongQuestions') || '[]'),
                     examHistory: JSON.parse(localStorage.getItem('examHistory') || '[]'),
+                    progress: JSON.parse(localStorage.getItem('quizProgress') || 'null'),
                     lastSync: new Date().toISOString()
                 };
                 
@@ -1684,6 +1685,11 @@
                 // 保存到本地
                 localStorage.setItem('wrongQuestions', JSON.stringify(data.wrongQuestions || []));
                 localStorage.setItem('examHistory', JSON.stringify(data.examHistory || []));
+                
+                // 恢复做题进度
+                if (data.progress) {
+                    localStorage.setItem('quizProgress', JSON.stringify(data.progress));
+                }
                 
                 statusEl.textContent = '下载成功！错题: ' + (data.wrongQuestions || []).length;
                 statusEl.style.color = '#50c878';
