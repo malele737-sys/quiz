@@ -1337,9 +1337,15 @@
             
             currentIndex++;
             
-            // 模拟演练模式下，检查是否完成所有题目
-            if (isExamMode && currentIndex >= currentQuestions.length) {
-                finishExam();
+            // 检查是否完成所有题目
+            if (currentIndex >= currentQuestions.length) {
+                if (isExamMode) {
+                    finishExam();
+                } else {
+                    clearProgress();
+                    alert('恭喜！已完成所有题目！');
+                    goHome();
+                }
                 return;
             }
             
