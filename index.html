@@ -752,6 +752,8 @@
         
         function clearProgress() {
             localStorage.removeItem('quizProgress');
+            // 清除进度后立即同步
+            autoSave();
         }
         
         // 加载题库
@@ -1435,6 +1437,9 @@
                 });
                 localStorage.setItem('wrongQuestions', JSON.stringify(wrongQuestions));
                 document.getElementById('total-wrong').textContent = wrongQuestions.length;
+                
+                // 立即同步到云端
+                autoSave();
             }
         }
         
@@ -1445,6 +1450,9 @@
             );
             localStorage.setItem('wrongQuestions', JSON.stringify(wrongQuestions));
             document.getElementById('total-wrong').textContent = wrongQuestions.length;
+            
+            // 立即同步到云端
+            autoSave();
         }
         
         // 删除当前错题（错题重练模式下）
