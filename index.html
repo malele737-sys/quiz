@@ -644,6 +644,10 @@
                     <label for="add-to-wrong" id="wrong-set-label">加入错题集</label>
                 </div>
                 
+                <div id="delete-wrong-section" style="display:none; margin-bottom: 12px;">
+                    <button class="btn" onclick="deleteCurrentWrong()" style="width:100%; background:#ff4444; color:#fff;">删除此题</button>
+                </div>
+                
                 <div class="buttons">
                     <button class="btn btn-primary" id="btn-confirm" onclick="confirmAnswer()">确定</button>
                     <button class="btn btn-next" id="btn-next" onclick="nextQuestion()" style="display:none">下一题</button>
@@ -1210,6 +1214,10 @@
             document.getElementById('add-to-wrong').checked = false;
             document.getElementById('btn-confirm').style.display = 'block';
             document.getElementById('btn-next').style.display = 'none';
+            
+            // 错题重练模式下显示删除按钮
+            document.getElementById('delete-wrong-section').style.display = 
+                isWrongPractice ? 'block' : 'none';
         }
         
         // 选择选项
@@ -1428,6 +1436,35 @@
             );
             localStorage.setItem('wrongQuestions', JSON.stringify(wrongQuestions));
             document.getElementById('total-wrong').textContent = wrongQuestions.length;
+        }
+        
+        // 删除当前错题（错题重练模式下）
+        function deleteCurrentWrong() {
+            if (!isWrongPractice) return;
+            
+            const currentQuestion = currentQuestions[currentIndex];
+            
+            if (confirm('确定要删除这道错题吗？')) {
+                removeFromWrongQuestions(currentQuestion);
+                
+                // 从当前题目列表中移除
+                currentQuestions.splice(currentIndex, 1);
+                
+                // 如果当前索引超出范围，回到第一题
+                if (currentIndex >= currentQuestions.length) {
+                    currentIndex = 0;
+                }
+                
+                // 如果没有题目了，返回首页
+                if (currentQuestions.length === 0) {
+                    alert('错题集已清空！');
+                    goHome();
+                    return;
+                }
+                
+                // 显示下一题
+                showQuestion();
+            }
         }
         
         // 显示错题集页面
