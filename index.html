@@ -1839,17 +1839,17 @@
         
         // 监听数据变化，自动保存
         function watchChanges() {
-            // 每30秒自动保存一次
-            setInterval(autoSave, 30000);
+            // 每5分钟自动保存一次（避免API限制）
+            setInterval(autoSave, 300000);
             
             // 监听 localStorage 变化
             const originalSetItem = localStorage.setItem;
             localStorage.setItem = function(key, value) {
                 originalSetItem.call(this, key, value);
                 if (key === 'wrongQuestions' || key === 'examHistory' || key === 'quizProgress') {
-                    // 数据变化后延迟2秒保存（避免频繁保存）
+                    // 数据变化后延迟30秒保存（避免API限制）
                     clearTimeout(window._autoSaveTimer);
-                    window._autoSaveTimer = setTimeout(autoSave, 2000);
+                    window._autoSaveTimer = setTimeout(autoSave, 30000);
                 }
             };
         }
