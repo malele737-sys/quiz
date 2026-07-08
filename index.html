@@ -1795,50 +1795,92 @@
             };
         }
         
+        // 智能同步：比较本地和云端数据，保留最新的
+        async function smartSync() {
+            const config = getSyncConfig();
+            if (!config.token || !config.gistId) return;
+            
+            try {
+                // 获取云端数据
+                const response = await fetch('https://api.github.com/gists/' + config.gistId, {
+                    headers: {
+                        'Authorization': 'token ' + config.token,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (!response.ok) return;
+                
+                const gist = await response.json();
+                if (!gist.files || !gist.files['quiz-data.json']) return;
+                
+                const cloudData = JSON.parse(gist.files['quiz-data.json'].content);
+                const cloudSync = cloudData.lastSync;
+                const localSync = localStorage.getItem('last_sync');
+                
+                // 获取本地数据
+                const localData = {
+                    wrongQuestions: JSON.parse(localStorage.getItem('wrongQuestions') || '[]'),
+                    examHistory: JSON.parse(localStorage.getItem('examHistory') || '[]'),
+                    progress: JSON.parse(localStorage.getItem('quizProgress') || 'null'),
+                    lastSync: localSync
+                };
+                
+                // 比较数据量：错题数量 + 做题进度
+                const cloudScore = (cloudData.wrongQuestions || []).length + 
+                                   (cloudData.progress ? cloudData.progress.index : 0);
+                const localScore = localData.wrongQuestions.length + 
+                                   (localData.progress ? localData.progress.index : 0);
+                
+                if (cloudScore > localScore) {
+                    // 云端数据更多，使用云端数据
+                    localStorage.setItem('wrongQuestions', JSON.stringify(cloudData.wrongQuestions || []));
+                    localStorage.setItem('examHistory', JSON.stringify(cloudData.examHistory || []));
+                    if (cloudData.progress) {
+                        localStorage.setItem('quizProgress', JSON.stringify(cloudData.progress));
+                    }
+                    localStorage.setItem('last_sync', cloudSync);
+                    
+                    // 刷新显示
+                    wrongQuestions = cloudData.wrongQuestions || [];
+                    examHistory = cloudData.examHistory || [];
+                    initApp();
+                } else if (localScore > cloudScore) {
+                    // 本地数据更多，上传到云端
+                    const uploadData = {
+                        ...localData,
+                        lastSync: new Date().toISOString()
+                    };
+                    
+                    await fetch('https://api.github.com/gists/' + config.gistId, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': 'token ' + config.token,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            files: {
+                                'quiz-data.json': {
+                                    content: JSON.stringify(uploadData)
+                                }
+                            }
+                        })
+                    });
+                    
+                    localStorage.setItem('last_sync', uploadData.lastSync);
+                }
+            } catch (e) {
+                // 静默失败
+            }
+        }
+        
         // 启动
         async function init() {
             await loadQuestions();
             updateSyncStatus();
             
-            // 页面加载时自动下载最新数据
-            const config = getSyncConfig();
-            if (config.token && config.gistId) {
-                try {
-                    const response = await fetch('https://api.github.com/gists/' + config.gistId, {
-                        headers: {
-                            'Authorization': 'token ' + config.token,
-                            'Accept': 'application/vnd.github.v3+json'
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        const gist = await response.json();
-                        if (gist.files && gist.files['quiz-data.json']) {
-                            const data = JSON.parse(gist.files['quiz-data.json'].content);
-                            
-                            // 检查云端数据是否更新
-                            const localSync = localStorage.getItem('last_sync');
-                            const cloudSync = data.lastSync;
-                            
-                            if (!localSync || !cloudSync || new Date(cloudSync) > new Date(localSync)) {
-                                localStorage.setItem('wrongQuestions', JSON.stringify(data.wrongQuestions || []));
-                                localStorage.setItem('examHistory', JSON.stringify(data.examHistory || []));
-                                if (data.progress) {
-                                    localStorage.setItem('quizProgress', JSON.stringify(data.progress));
-                                }
-                                localStorage.setItem('last_sync', cloudSync);
-                                
-                                // 刷新显示
-                                wrongQuestions = data.wrongQuestions || [];
-                                examHistory = data.examHistory || [];
-                                initApp();
-                            }
-                        }
-                    }
-                } catch (e) {
-                    // 静默失败
-                }
-            }
+            // 页面加载时智能同步
+            await smartSync();
             
             // 启动自动保存
             watchChanges();
